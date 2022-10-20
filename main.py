@@ -9,28 +9,30 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="$", intents=intents)
 logging.basicConfig(level=logging.INFO)
 
-queue = [] # queue players will join to play a game
+queue = []  # queue players will join to play a game
+currentGames = {}
 
 
-class slot: # a slot on the board
+class slot:  # a slot on the board
     def __init__(self, x, y):
-        self.state = 0  # 0 is empty, 1 is normal yellow, 2 is special yellow, 3 is charged yellow, 4 is normal blue, 5 is special blue, 6 is charged blue
+        self.state = 0  # 0 is empty, 1 is normal yellow, 2 is special yellow, 3 is charged yellow, 4 is normal blue,
+        # 5 is special blue, 6 is charged blue
         self.coords = (x, y)  # x and y value of the slot
-        self.contents = ":Em:" # content or emoji of the slot
+        self.contents = "<:Em:1032294076168552448>"  # content or emoji of the slot
 
-    def changeContents(self): # changes the contents of the slot depending on state
+    def changeContents(self):  # changes the contents of the slot depending on state
         if self.state == 0:
-            self.contents = ":Em:"
+            self.contents = "<:Em:1032294076168552448>"
         elif self.state == 1:
-            self.contents = ":Ye:"
+            self.contents = "<:Ye:1032293532909707294>"
         elif self.state == 2:
-            self.contents = ":YS:"
+            self.contents = "<:YS:1032293535279501433>"
         elif self.state == 3:
             self.contents == ":YC:"
         elif self.state == 4:
-            self.contents = ":Bl:"
+            self.contents = "<:Bl:1032293531542356040>"
         elif self.state == 5:
-            self.contents = ":BS:"
+            self.contents = "<:BS:1032293534088306728>"
         elif self.state == 6:
             self.contents == ":BC:"
         else:
@@ -52,60 +54,144 @@ class board:
                 x += 1
             y += 1
             x = 0
+        self.board.get("(4, 14)").state = 2
+        self.board.get("(4, 2)").state = 5
+        self.update()
 
     def printBoard(self):
-        embed = discord.Embed(title="Your board", color=0x6a37c8)
+        self.update()
         board = []
         x = 0
         y = 0
-        for rows in range(0, 26):
-            for slots in range(0, 10):
+        for rows in range(0, 17):
+            for slots in range(0, 9):
                 board.append(self.board.get(str((x, y))).contents)
                 x += 1
-            if y in [3, 6, 9, 12, 15, 18, 21, 24]:
-              y += 1
-              embed.add_field("", "".join(board))
-              board = []
-            else:
-              y += 1
-              board.append("\n")
+            y += 1
+            board.append("\n")
             x = 0
-        print(embed.len())
+        embed = discord.Embed(title="Your Board", description="".join(board), color=0x6a37c8)
         return embed
+
+    def update(self):
+        x = 0
+        y = 0
+        for rows in range(0, 17):
+            for slots in range(0, 9):
+                self.board.get(str((x, y))).changeContents()
+                x += 1
+            y += 1
+            x = 0
 
 
 class game:
-  def __init__(self, player1, player2, board):
-    self.name = player1.name + " vs " + player2.name
-    self.players = [player1, player2]
-    self.board = board
-    self.turn = 0
+    def __init__(self, player1, player2, board):
+        self.name = str(player1.name) + " vs " + str(player2.name)
+        self.players = [player1, player2]
+        self.board = board
+        self.turn = 0
 
 
 class card:
-  def __init__(self, Name, Number, Speed, Pattern):
-    self.name = Name # Name of card
-    self.number = Number # Number of card
-    self.speed = Speed # Determines the speed of the card when played
-    self.orign = [0, 0] # Starting orign of card
-    self.pattern = Pattern # Determines what the card will look like
+    def __init__(self, Name, Number, Speed, Pattern, Origin=[0, 0]):
+        self.name = Name  # Name of card
+        self.number = Number  # Number of card
+        self.speed = Speed  # Determines the speed of the card when played
+        self.origin = Origin  # Starting origin of card
+        self.pattern = Pattern  # Determines what the card will look like
+
+    async def move(self, ctx, actualBoard, actualPlayer):
+        testplayer = player([], "Hi there", 1)
+        testboard = board("Test")
+        print(self.origin)
+        print(self.pattern)
+        self.place(testboard, testplayer)
+        testboard.update()
+        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "❌"]
+        await ctx.send(embed=testboard.printBoard())
+        message = await ctx.send("Move card?")
+        for emoji in emojis:
+            await message.add_reaction(emoji)
+        print(message.reactions)
+
+    def place(self, board, player):
+        if player.team == 1:
+            special = 2
+            normal = 1
+        if player.team == 2:
+            special = 5
+            normal = 4
+        if not self.check(board):
+            print("Can't place here")
+        else:
+            initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
+            initalSpecial.state = special
+            for pieces in self.pattern:
+                changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
+                changedPiece = board.board.get(str(changedOrigin))
+                changedPiece.state = normal
+
+    def check(self, board):
+        initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
+        if initalSpecial.state != 0 or initalSpecial is None:
+            return False
+        else:
+            for pieces in self.pattern:
+                changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
+                changedPiece = board.board.get(str(changedOrigin))
+                if changedPiece.state != 0 or changedPiece is None:
+                    return False
+                else:
+                    return True
 
 
 class player:
-  def __init__(self, Deck, Name):
-    self.name = Name
-    self.deck = Deck # Deck of player
-    self.hand = [] # Hand of player
-    self.team = 0 # Determines which team player is on, 0 is queing, 1 is yellow, 2 is blue
+    def __init__(self, Deck, Name, team=0):
+        self.name = Name
+        self.deck = Deck  # Deck of player
+        self.hand = []  # Hand of player
+        self.team = team  # Determines which team player is on, 0 is queueing, 1 is yellow, 2 is blue
 
 
 @bot.command()
-async def test(ctx, message):
-    await ctx.send(message)
+async def testCard(ctx):
+    newplayer = player([], "Hi there", 1)
+    newboard = board(ctx.message.author)
+    newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1)], [5, 5])
+    newCard.place(newboard, newplayer)
+    newboard.update()
+    boardList = newboard.printBoard()
+    await ctx.send(embed=boardList)
+
+
+@bot.command()
+async def moveTest(ctx):
+    newplayer = player([], "Hi there", 1)
+    newboard = board(ctx.message.author)
+    newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)], [5, 5])
+    await newCard.move(ctx, newboard, newplayer)
+
+
+defaultDeck = []
 
 
 @bot.command()
 async def joinQueue(ctx):
+    queue.append(player(defaultDeck, ctx.message.author))
+    print(queue)
+    await ctx.send("You have joined the queue")
+    for players in range(0, len(queue)):
+        if len(queue) >= 2:
+            newBoard = board(ctx.message.author)
+            player1 = queue.pop(0)
+            player2 = queue.pop(0)
+            player1.team = 1
+            player2.team = 2
+            newGame = game(player1, player2, newBoard)
+            currentGames[player1] = newGame
+            currentGames[player2] = newGame
+            await ctx.send("<@" + str(player1.name) + ">" + "<@" + str(player2.name) + ">" + ", your game is ready")
+            await ctx.send(embed=newGame.board.printBoard())
     return
 
 
@@ -117,4 +203,4 @@ async def makeBoard(ctx):
 
 
 if __name__ == "__main__":
-    bot.run("MTAzMjEyOTIxMTE1NjE1MjM0MA.GDiVS9._TYWvbSgLGdI_bRrFjz5UKrhcwtboyH4A5u9-Q")
+    bot.run("Token Goes Here")
