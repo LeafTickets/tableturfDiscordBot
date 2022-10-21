@@ -101,18 +101,47 @@ class card:
         self.pattern = Pattern  # Determines what the card will look like
 
     async def move(self, ctx, actualBoard, actualPlayer):
-        testplayer = player([], "Hi there", 1)
+        testplayer = player([], actualPlayer.name, 1)
         testboard = board("Test")
         print(self.origin)
         print(self.pattern)
         self.place(testboard, testplayer)
         testboard.update()
         emojis = ["⬆️", "⬇️", "➡️", "⬅️", "❌"]
-        await ctx.send(embed=testboard.printBoard())
-        message = await ctx.send("Move card?")
+        await ctx.author.send(embed=testboard.printBoard())
+        message = await ctx.author.send("Move card?")
         for emoji in emojis:
             await message.add_reaction(emoji)
-        print(message.reactions)
+        payload = await bot.wait_for('raw_reaction_add')
+        user = payload.user_id
+        reaction = payload.emoji.name
+        if actualPlayer.name == user:
+            if reaction == "⬆️":
+                self.origin[1] += -1
+                if not self.check(actualBoard):
+                    self.origin[1] += 1
+                await self.move(ctx, actualBoard, actualPlayer)
+            elif reaction == "⬇️":
+                self.origin[1] += 1
+                if not self.check(actualBoard):
+                    self.origin[1] += -1
+                await self.move(ctx, actualBoard, actualPlayer)
+            elif reaction == "➡️":
+                self.origin[0] += 1
+                if not self.check(actualBoard):
+                    self.origin[1] += -1
+                await self.move(ctx, actualBoard, actualPlayer)
+            elif reaction == "⬅️":
+                self.origin[0] += -1
+                if not self.check(actualBoard):
+                    self.origin[1] += 1
+                await self.move(ctx, actualBoard, actualPlayer)
+            elif reaction == "❌":
+                await self.place(actualBoard, actualPlayer)
+            else:
+                ctx.send("Something went wrong")
+        else:
+            await self.move(ctx, actualBoard, actualPlayer)
 
     def place(self, board, player):
         if player.team == 1:
@@ -122,6 +151,8 @@ class card:
             special = 5
             normal = 4
         if not self.check(board):
+            print("Can't place here")
+        elif not self.nextCheck(board, player):
             print("Can't place here")
         else:
             initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
@@ -144,6 +175,27 @@ class card:
                 else:
                     return True
 
+    def nextCheck(self, board, player):
+        if player.team == 1:
+            special = 2
+            normal = 1
+        if player.team == 2:
+            special = 5
+            normal = 4
+        teamnums = [special, normal]
+        checkplace = [(0, -1), (0, 1), (1, -1), (1, 1), (1, 0), (-1, 0), (-1, 1), (-1, -1)]
+        for pieces in self.pattern:
+            for checks in checkplace:
+                for checks in checkplace:
+                    changedOrigin = self.origin[0] + checks[0], self.origin[1] + checks[1]
+                    changedPiece = board.board.get(str(changedOrigin))
+                    if changedPiece.state in teamnums or changedPiece is None:
+                        changedOrigin = self.origin[0] + pieces[0] + checks[0], self.origin[1] + pieces[1] + checks[1]
+                        changedPiece = board.board.get(str(changedOrigin))
+                        if changedPiece.state in teamnums or changedPiece is None:
+                            return True
+                        else:
+                            return False
 
 class player:
     def __init__(self, Deck, Name, team=0):
@@ -156,7 +208,7 @@ class player:
 @bot.command()
 async def testCard(ctx):
     newplayer = player([], "Hi there", 1)
-    newboard = board(ctx.message.author)
+    newboard = board(ctx.message.author.id)
     newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1)], [5, 5])
     newCard.place(newboard, newplayer)
     newboard.update()
@@ -166,8 +218,8 @@ async def testCard(ctx):
 
 @bot.command()
 async def moveTest(ctx):
-    newplayer = player([], "Hi there", 1)
-    newboard = board(ctx.message.author)
+    newplayer = player([], ctx.message.author.id, 1)
+    newboard = board(ctx.message.author.id)
     newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)], [5, 5])
     await newCard.move(ctx, newboard, newplayer)
 
@@ -177,12 +229,12 @@ defaultDeck = []
 
 @bot.command()
 async def joinQueue(ctx):
-    queue.append(player(defaultDeck, ctx.message.author))
+    queue.append(player(defaultDeck, ctx.message.author.id))
     print(queue)
     await ctx.send("You have joined the queue")
     for players in range(0, len(queue)):
         if len(queue) >= 2:
-            newBoard = board(ctx.message.author)
+            newBoard = board(ctx.message.author.id)
             player1 = queue.pop(0)
             player2 = queue.pop(0)
             player1.team = 1
@@ -197,10 +249,10 @@ async def joinQueue(ctx):
 
 @bot.command()
 async def makeBoard(ctx):
-    newboard = board(ctx.message.author)
+    newboard = board(ctx.message.author.id)
     boardList = newboard.printBoard()
     await ctx.send(embed=boardList)
 
 
 if __name__ == "__main__":
-    bot.run("Token Goes Here")
+    bot.run("MTAzMjEyOTIxMTE1NjE1MjM0MA.GDiVS9._TYWvbSgLGdI_bRrFjz5UKrhcwtboyH4A5u9-Q")
