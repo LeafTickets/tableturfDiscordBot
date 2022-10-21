@@ -183,19 +183,15 @@ class card:
             special = 5
             normal = 4
         teamnums = [special, normal]
-        checkplace = [(0, -1), (0, 1), (1, -1), (1, 1), (1, 0), (-1, 0), (-1, 1), (-1, -1)]
+        checkplace = [(0, 0), (0, -1), (0, 1), (1, -1), (1, 1), (1, 0), (-1, 0), (-1, 1), (-1, -1)]
         for pieces in self.pattern:
             for checks in checkplace:
-                for checks in checkplace:
-                    changedOrigin = self.origin[0] + checks[0], self.origin[1] + checks[1]
-                    changedPiece = board.board.get(str(changedOrigin))
-                    if changedPiece.state in teamnums or changedPiece is None:
-                        changedOrigin = self.origin[0] + pieces[0] + checks[0], self.origin[1] + pieces[1] + checks[1]
-                        changedPiece = board.board.get(str(changedOrigin))
-                        if changedPiece.state in teamnums or changedPiece is None:
-                            return True
-                        else:
-                            return False
+                changedOrigin = self.origin[0] + pieces[0] + checks[0], self.origin[1] + pieces[1] + checks[1]
+                changedPiece = board.board.get(str(changedOrigin))
+                if changedPiece.state in teamnums or changedPiece is None:
+                    return True
+                else:
+                    return False
 
 class player:
     def __init__(self, Deck, Name, team=0):
@@ -220,7 +216,7 @@ async def testCard(ctx):
 async def moveTest(ctx):
     newplayer = player([], ctx.message.author.id, 1)
     newboard = board(ctx.message.author.id)
-    newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)], [5, 5])
+    newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)], [5, 12])
     await newCard.move(ctx, newboard, newplayer)
 
 
