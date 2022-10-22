@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from random import randint
 import logging
+import copy
 
 # 7 - 10, Setting up the Discord bot
 intents = discord.Intents.default()
@@ -40,10 +41,13 @@ class slot:  # a slot on the board
 
 
 class board:
-    def __init__(self, nam):
+    def __init__(self, nam, board={}):
         self.name = nam
-        self.board = {}
-        self.makeBoard()
+        self.board = board
+        if board != {}:
+            return
+        else:
+            self.makeBoard()
 
     def makeBoard(self):
         x = 0
@@ -89,25 +93,35 @@ class game:
         self.name = str(player1.name) + " vs " + str(player2.name)
         self.players = [player1, player2]
         self.board = board
+        self.playerturn = 0
         self.turn = 0
+
+    def startGame(self):
+        for nums in range(0, 4):
+            self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[1].deck))))
+        for nums in range(0, 4):
+            self.players[1].hand.append(self.players[1].deck.pop(randint(0, len(self.players[1].deck))))
+
+    def playGame(self):
+        await self.players[self.playerturn].name.send
 
 
 class card:
-    def __init__(self, Name, Number, Speed, Pattern, Origin=[0, 0]):
+    def __init__(self, Name, Number, Speed, Patterns, Origin=[0, 0]):
         self.name = Name  # Name of card
         self.number = Number  # Number of card
         self.speed = Speed  # Determines the speed of the card when played
         self.origin = Origin  # Starting origin of card
-        self.pattern = Pattern  # Determines what the card will look like
+        self.pattern = Patterns  # Determines what the card will look like
 
     async def move(self, ctx, actualBoard, actualPlayer):
-        testplayer = player([], actualPlayer.name, 1)
-        testboard = board("Test")
         print(self.origin)
         print(self.pattern)
+        testboard = copy.deepcopy(actualBoard)
+        testplayer = player([], "Test", 1)
         self.place(testboard, testplayer)
-        testboard.update()
-        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "❌"]
+        actualBoard.update()
+        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "❌", "⤵️"]
         await ctx.author.send(embed=testboard.printBoard())
         message = await ctx.author.send("Move card?")
         for emoji in emojis:
@@ -118,30 +132,29 @@ class card:
         if actualPlayer.name == user:
             if reaction == "⬆️":
                 self.origin[1] += -1
-                if not self.check(actualBoard):
-                    self.origin[1] += 1
                 await self.move(ctx, actualBoard, actualPlayer)
             elif reaction == "⬇️":
                 self.origin[1] += 1
-                if not self.check(actualBoard):
-                    self.origin[1] += -1
                 await self.move(ctx, actualBoard, actualPlayer)
             elif reaction == "➡️":
                 self.origin[0] += 1
-                if not self.check(actualBoard):
-                    self.origin[1] += -1
                 await self.move(ctx, actualBoard, actualPlayer)
             elif reaction == "⬅️":
                 self.origin[0] += -1
-                if not self.check(actualBoard):
-                    self.origin[1] += 1
                 await self.move(ctx, actualBoard, actualPlayer)
             elif reaction == "❌":
-                await self.place(actualBoard, actualPlayer)
+                self.place(actualBoard, actualPlayer)
+            elif reaction == "⤵️":
+                self.rotate()
+                self.move(actualBoard, actualPlayer)
             else:
                 ctx.send("Something went wrong")
         else:
             await self.move(ctx, actualBoard, actualPlayer)
+
+    def rotate(self):
+        for pieces in self.pattern:
+            continue
 
     def place(self, board, player):
         if player.team == 1:
@@ -189,9 +202,15 @@ class card:
                 changedOrigin = self.origin[0] + pieces[0] + checks[0], self.origin[1] + pieces[1] + checks[1]
                 changedPiece = board.board.get(str(changedOrigin))
                 if changedPiece.state in teamnums or changedPiece is None:
-                    return True
+                    returnStatement = True
                 else:
-                    return False
+                    returnStatement = False
+                if not returnStatement:
+                    continue
+                elif returnStatement:
+                    return True
+        return False
+
 
 class player:
     def __init__(self, Deck, Name, team=0):
@@ -217,7 +236,10 @@ async def moveTest(ctx):
     newplayer = player([], ctx.message.author.id, 1)
     newboard = board(ctx.message.author.id)
     newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)], [5, 12])
+    newCard2 = card("Splatana", 55, 5, [(0, 1), (0, 2), (0, 3), (0, 4)], [3, 12])
     await newCard.move(ctx, newboard, newplayer)
+    await newCard2.move(ctx, newboard, newplayer)
+    await ctx.send(embed=newboard.printBoard())
 
 
 defaultDeck = []
