@@ -112,7 +112,7 @@ class game:
                 self.players[nums].hand[2].speed))
             embed.add_field(name="Fourth Card", value=str(self.players[nums].hand[3].name) + "\nSpeed: " + str(
                 self.players[nums].hand[3].speed))
-            user = await bot.fetch_user(self.players[0].name)
+            user = await bot.fetch_user(self.players[nums].name)
             message = await user.send(embed=embed)
             for emoji in emojis:
                 await message.add_reaction(emoji)
@@ -120,8 +120,7 @@ class game:
             reaction = payload.emoji.name
             if reaction == "✅":
                 for numes in range(0, 4):
-                    randnum = randint(0, len(self.players[0].hand) - 1)
-                    self.players[nums].deck.append(self.players[nums].hand.pop(randnum))
+                    self.players[nums].deck.append(self.players[nums].hand.pop(len(self.players[nums].hand)-1))
                 for numes in range(0, 4):
                     randnum = randint(0, len(self.players[0].deck) - 1)
                     self.players[nums].hand.append(self.players[nums].deck.pop(randnum))
@@ -141,7 +140,7 @@ class game:
         self.playGame()
 
     def playGame(self):
-        self.players[self.playerturn].name.send
+        return
 
 
 class card:
