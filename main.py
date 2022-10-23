@@ -96,14 +96,52 @@ class game:
         self.playerturn = 0
         self.turn = 0
 
-    def startGame(self):
+    async def startGame(self):
+        emojis = ["✅", "❌"]
         for nums in range(0, 4):
-            self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[1].deck))))
+            self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[0].deck) - 1)))
         for nums in range(0, 4):
-            self.players[1].hand.append(self.players[1].deck.pop(randint(0, len(self.players[1].deck))))
+            self.players[1].hand.append(self.players[1].deck.pop(randint(0, len(self.players[1].deck) - 1)))
+        for nums in range(0, 2):
+            embed = discord.Embed(title="Your Hand", description="The cards in your initial hand", color=0x6a37c8)
+            embed.add_field(name="First Card", value=str(self.players[nums].hand[0].name) + "\nSpeed: " + str(
+                self.players[nums].hand[0].speed))
+            embed.add_field(name="Second Card", value=str(self.players[nums].hand[1].name) + "\nSpeed: " + str(
+                self.players[nums].hand[1].speed))
+            embed.add_field(name="Third Card", value=str(self.players[nums].hand[2].name) + "\nSpeed: " + str(
+                self.players[nums].hand[2].speed))
+            embed.add_field(name="Fourth Card", value=str(self.players[nums].hand[3].name) + "\nSpeed: " + str(
+                self.players[nums].hand[3].speed))
+            user = await bot.fetch_user(self.players[0].name)
+            message = await user.send(embed=embed)
+            for emoji in emojis:
+                await message.add_reaction(emoji)
+            payload = await bot.wait_for('raw_reaction_add')
+            reaction = payload.emoji.name
+            if reaction == "✅":
+                for numes in range(0, 4):
+                    randnum = randint(0, len(self.players[0].hand) - 1)
+                    self.players[nums].deck.append(self.players[nums].hand.pop(randnum))
+                for numes in range(0, 4):
+                    randnum = randint(0, len(self.players[0].deck) - 1)
+                    self.players[nums].hand.append(self.players[nums].deck.pop(randnum))
+                embed = discord.Embed(title="Your Hand", description="The cards in your initial hand", color=0x6a37c8)
+                embed.add_field(name="First Card", value=str(self.players[nums].hand[0].name) + "\nSpeed: " + str(
+                    self.players[nums].hand[0].speed))
+                embed.add_field(name="Second Card", value=str(self.players[nums].hand[1].name) + "\nSpeed: " + str(
+                    self.players[nums].hand[1].speed))
+                embed.add_field(name="Third Card", value=str(self.players[nums].hand[2].name) + "\nSpeed: " + str(
+                    self.players[nums].hand[2].speed))
+                embed.add_field(name="Fourth Card", value=str(self.players[nums].hand[3].name) + "\nSpeed: " + str(
+                    self.players[nums].hand[3].speed))
+                await user.send(embed=embed)
+                continue
+            elif reaction == "❌":
+                continue
+        self.playGame()
 
     def playGame(self):
-        await self.players[self.playerturn].name.send
+        self.players[self.playerturn].name.send
 
 
 class card:
@@ -146,7 +184,7 @@ class card:
                 self.place(actualBoard, actualPlayer)
             elif reaction == "⤵️":
                 self.rotate()
-                self.move(actualBoard, actualPlayer)
+                await self.move(actualBoard, actualPlayer)
             else:
                 ctx.send("Something went wrong")
         else:
@@ -242,13 +280,15 @@ async def moveTest(ctx):
     await ctx.send(embed=newboard.printBoard())
 
 
-defaultDeck = []
+defaultDeck = [card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)], [5, 12]),
+               card("Splatana", 55, 5, [(0, 1), (0, 2), (0, 3), (0, 4)], [3, 12]),
+               card("Sprinkler", 59, 3, [(-1, -1), (1, -1)]), card("Curling Bomb", 62, 4, [(0, 1), (-1, 1), (1, 1)]),
+               card("Forgot the name", 55, 5, [(0, 1), (0, 2), (0, 3), (0, 4)], [3, 12])]
 
 
 @bot.command()
 async def joinQueue(ctx):
     queue.append(player(defaultDeck, ctx.message.author.id))
-    print(queue)
     await ctx.send("You have joined the queue")
     for players in range(0, len(queue)):
         if len(queue) >= 2:
@@ -257,11 +297,13 @@ async def joinQueue(ctx):
             player2 = queue.pop(0)
             player1.team = 1
             player2.team = 2
+            player1.deck, player2.deck = copy.deepcopy(defaultDeck), copy.deepcopy(defaultDeck)
             newGame = game(player1, player2, newBoard)
             currentGames[player1] = newGame
             currentGames[player2] = newGame
             await ctx.send("<@" + str(player1.name) + ">" + "<@" + str(player2.name) + ">" + ", your game is ready")
             await ctx.send(embed=newGame.board.printBoard())
+            await newGame.startGame()
     return
 
 
