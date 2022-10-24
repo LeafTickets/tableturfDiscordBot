@@ -96,7 +96,7 @@ class game:
         self.playerturn = 0
         self.turn = 0
 
-    async def startGame(self):
+    async def startGame(self, ctx):
         emojis = ["✅", "❌"]
         for nums in range(0, 4):
             self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[0].deck) - 1)))
@@ -137,10 +137,42 @@ class game:
                 continue
             elif reaction == "❌":
                 continue
-        self.playGame()
+        await self.playGame(ctx)
 
-    def playGame(self):
-        return
+    async def playGame(self, ctx):
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+        for turn in range(0, 13):
+            for playerTurn in range(0, 2):
+                user = await bot.fetch_user(self.players[playerTurn].name)
+                message = await user.send(embed=self.embedGen(playerTurn))
+                for emoji in emojis:
+                    await message.add_reaction(emoji)
+                payload = await bot.wait_for('raw_reaction_add')
+                reaction = payload.emoji.name
+                if reaction == "1️⃣":
+                    chosencard = self.players[playerTurn].hand[0]
+                    await chosencard.move(ctx, self.board, self.players[playerTurn])
+                elif reaction == "2️⃣":
+                    chosencard = self.players[playerTurn].hand[1]
+                    await chosencard.move(ctx, self.board, self.players[playerTurn])
+                elif reaction == "3️⃣":
+                    chosencard = self.players[playerTurn].hand[2]
+                    await chosencard.move(ctx, self.board, self.players[playerTurn])
+                elif reaction == "4️⃣":
+                    chosencard = self.players[playerTurn].hand[3]
+                    await chosencard.move(ctx, self.board, self.players[playerTurn])
+
+    def embedGen(self, player):
+        embed = discord.Embed(title="Your Hand", description="The cards in your initial hand", color=0x6a37c8)
+        embed.add_field(name="First Card", value=str(self.players[player].hand[0].name) + "\nSpeed: " + str(
+            self.players[player].hand[0].speed))
+        embed.add_field(name="Second Card", value=str(self.players[player].hand[1].name) + "\nSpeed: " + str(
+            self.players[player].hand[1].speed))
+        embed.add_field(name="Third Card", value=str(self.players[player].hand[2].name) + "\nSpeed: " + str(
+            self.players[player].hand[2].speed))
+        embed.add_field(name="Fourth Card", value=str(self.players[player].hand[3].name) + "\nSpeed: " + str(
+            self.players[player].hand[3].speed))
+        return embed
 
 
 class card:
@@ -158,9 +190,10 @@ class card:
         testplayer = player([], "Test", 1)
         self.place(testboard, testplayer)
         actualBoard.update()
-        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "❌", "⤵️"]
-        await ctx.author.send(embed=testboard.printBoard())
-        message = await ctx.author.send("Move card?")
+        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "✅", "⤵️"]
+        user = await bot.fetch_user(actualPlayer.name)
+        await user.send(embed=testboard.printBoard())
+        message = await user.send("Move card?")
         for emoji in emojis:
             await message.add_reaction(emoji)
         payload = await bot.wait_for('raw_reaction_add')
@@ -179,11 +212,11 @@ class card:
             elif reaction == "⬅️":
                 self.origin[0] += -1
                 await self.move(ctx, actualBoard, actualPlayer)
-            elif reaction == "❌":
+            elif reaction == "✅":
                 self.place(actualBoard, actualPlayer)
             elif reaction == "⤵️":
                 self.rotate()
-                await self.move(actualBoard, actualPlayer)
+                await self.move(ctx, actualBoard, actualPlayer)
             else:
                 ctx.send("Something went wrong")
         else:
@@ -214,13 +247,17 @@ class card:
 
     def check(self, board):
         initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
-        if initalSpecial.state != 0 or initalSpecial is None:
+        if  initalSpecial is None:
+            return False
+        elif initalSpecial.state != 0:
             return False
         else:
             for pieces in self.pattern:
                 changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
                 changedPiece = board.board.get(str(changedOrigin))
-                if changedPiece.state != 0 or changedPiece is None:
+                if changedPiece is None:
+                    return False
+                elif changedPiece.state != 0:
                     return False
                 else:
                     return True
@@ -238,7 +275,9 @@ class card:
             for checks in checkplace:
                 changedOrigin = self.origin[0] + pieces[0] + checks[0], self.origin[1] + pieces[1] + checks[1]
                 changedPiece = board.board.get(str(changedOrigin))
-                if changedPiece.state in teamnums or changedPiece is None:
+                if changedPiece is None:
+                    returnStatement = True
+                elif changedPiece.state in teamnums:
                     returnStatement = True
                 else:
                     returnStatement = False
@@ -302,7 +341,7 @@ async def joinQueue(ctx):
             currentGames[player2] = newGame
             await ctx.send("<@" + str(player1.name) + ">" + "<@" + str(player2.name) + ">" + ", your game is ready")
             await ctx.send(embed=newGame.board.printBoard())
-            await newGame.startGame()
+            await newGame.startGame(ctx)
     return
 
 
