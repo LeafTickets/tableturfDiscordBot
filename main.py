@@ -3,6 +3,7 @@ from discord.ext import commands
 from random import randint
 import logging
 import copy
+from RotateBlock import rotate
 
 # 7 - 10, Setting up the Discord bot
 intents = discord.Intents.default()
@@ -187,7 +188,7 @@ class card:
         print(self.origin)
         print(self.pattern)
         testboard = copy.deepcopy(actualBoard)
-        testplayer = player([], "Test", 1)
+        testplayer = copy.deepcopy(actualPlayer)
         self.place(testboard, testplayer)
         actualBoard.update()
         emojis = ["⬆️", "⬇️", "➡️", "⬅️", "✅", "⤵️"]
@@ -215,7 +216,7 @@ class card:
             elif reaction == "✅":
                 self.place(actualBoard, actualPlayer)
             elif reaction == "⤵️":
-                self.rotate()
+                self.pattern = rotate(self)
                 await self.move(ctx, actualBoard, actualPlayer)
             else:
                 ctx.send("Something went wrong")
@@ -247,7 +248,7 @@ class card:
 
     def check(self, board):
         initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
-        if  initalSpecial is None:
+        if initalSpecial is None:
             return False
         elif initalSpecial.state != 0:
             return False
