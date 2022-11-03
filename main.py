@@ -81,16 +81,16 @@ class game:
                 payload = await bot.wait_for('raw_reaction_add')
                 reaction = payload.emoji.name
                 if reaction == "1️⃣":
-                    chosencard = self.players[playerTurn].hand[0]
+                    chosencard = self.players[playerTurn].hand.pop(0)
                     await chosencard.move(ctx, self.board, self.players[playerTurn])
                 elif reaction == "2️⃣":
-                    chosencard = self.players[playerTurn].hand[1]
+                    chosencard = self.players[playerTurn].hand.pop(1)
                     await chosencard.move(ctx, self.board, self.players[playerTurn])
                 elif reaction == "3️⃣":
-                    chosencard = self.players[playerTurn].hand[2]
+                    chosencard = self.players[playerTurn].hand.pop(2)
                     await chosencard.move(ctx, self.board, self.players[playerTurn])
                 elif reaction == "4️⃣":
-                    chosencard = self.players[playerTurn].hand[3]
+                    chosencard = self.players[playerTurn].hand.pop(3)
                     await chosencard.move(ctx, self.board, self.players[playerTurn])
                 chosencards.append(chosencard)
                 boardPlayerList.append((self.board, self.players[playerTurn]))
@@ -126,7 +126,9 @@ class game:
 
 
 class card:
-    def __init__(self, Name, Number, Speed, Patterns, Origin=[4, 8]):
+    def __init__(self, Name, Number, Speed, Patterns, Origin=None):
+        if Origin is None:
+            Origin = [4, 8]
         self.previousCoords = []
         self.name = Name  # Name of card
         self.number = Number  # Number of card
@@ -347,4 +349,4 @@ async def makeBoard(ctx):
 
 
 if __name__ == "__main__":
-    bot.run("MTAzMjEyOTIxMTE1NjE1MjM0MA.GDiVS9._TYWvbSgLGdI_bRrFjz5UKrhcwtboyH4A5u9-Q")
+    bot.run("Token Goes Here")
