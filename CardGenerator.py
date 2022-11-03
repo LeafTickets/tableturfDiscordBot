@@ -1,6 +1,3 @@
-from main import card
-
-
 def patternGen(patterns):
     returnPatterns = []
     for pattern in patterns:
@@ -25,14 +22,12 @@ def cardGen():
 
     for cards in cardList:
         var = cards.split()
-        newCard = card(var[0], int(var[1]), int(var[2]), patternGen(var[3:]))
+        newCard = (var[0], int(var[1]), int(var[2]), int(var[3]), patternGen(var[4:]))
         returnCards.append(newCard)
 
+    Cards.close()
     return returnCards
 
 
 if __name__ == "__main__":
-    print(cardGen()[1].name)
-    print(cardGen()[1].number)
-    print(cardGen()[1].speed)
-    print(cardGen()[1].pattern)
+    print(cardGen()[1])

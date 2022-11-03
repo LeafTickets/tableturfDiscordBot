@@ -73,16 +73,20 @@ class game:
             chosencards = []
             boardPlayerList = []
             for playerTurn in range(0, 2):
-                chosencard = await self.showHand(playerTurn)
+                chosencard, cardpass = await self.showHand(playerTurn)
+                if cardpass:
+                    self.players[playerTurn].charge += 1
+                if chosencard is None:
+                    chosencard = card("Temp", 0, 0, 0, None)
                 await chosencard.move(ctx, self.board, self.players[playerTurn])
                 chosencards.append(chosencard)
                 boardPlayerList.append((self.board, self.players[playerTurn]))
             if chosencards[0].speed > chosencards[1].speed:
-                chosencards[0].place(boardPlayerList[0][0], boardPlayerList[0][1])
-                chosencards[1].place(boardPlayerList[1][0], boardPlayerList[1][1])
+                chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
+                chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
             elif chosencards[0].speed < chosencards[1].speed:
-                chosencards[1].place(boardPlayerList[1][0], boardPlayerList[1][1])
-                chosencards[0].place(boardPlayerList[0][0], boardPlayerList[0][1])
+                chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
+                chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
             else:
                 chosencards[0].place(boardPlayerList[0][0], boardPlayerList[0][1], False, False)
                 chosencards[1].place(boardPlayerList[1][0], boardPlayerList[1][1], False, False)
@@ -90,8 +94,8 @@ class game:
                 for coords in barrierCoords:
                     changingCoord = self.board.board.get(str(coords))
                     changingCoord.state = 11
-            self.players[0].hand.pop(self.players[0].index(chosencards[0]))
-            self.players[1].hand.pop(self.players[1].index(chosencards[1]))
+            self.players[0].hand.pop(self.players[0].hand.index(chosencards[0]))
+            self.players[1].hand.pop(self.players[1].hand.index(chosencards[1]))
             self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[0].deck) - 1)))
             self.players[1].hand.append(self.players[1].deck.pop(randint(0, len(self.players[1].deck) - 1)))
             user1 = await bot.fetch_user(self.players[0].name)
@@ -99,8 +103,8 @@ class game:
             await user1.send(embed=self.board.printBoard())
             await user2.send(embed=self.board.printBoard())
 
-    async def showHand(self, playerTurn):
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+    async def showHand(self, playerTurn, cardPass=False):
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "✋"]
         user = await bot.fetch_user(self.players[playerTurn].name)
         message = await user.send(embed=self.embedGen(playerTurn))
         for emoji in emojis:
@@ -108,17 +112,19 @@ class game:
         payload = await bot.wait_for('raw_reaction_add')
         reaction = payload.emoji.name
         if reaction == "1️⃣":
-            chosencard = self.players[playerTurn].hand.pop(0)
-            return chosencard
+            chosencard = self.players[playerTurn].hand[0]
+            return chosencard, cardPass
         elif reaction == "2️⃣":
-            chosencard = self.players[playerTurn].hand.pop(1)
-            return chosencard
+            chosencard = self.players[playerTurn].hand[1]
+            return chosencard, cardPass
         elif reaction == "3️⃣":
-            chosencard = self.players[playerTurn].hand.pop(2)
-            return chosencard
+            chosencard = self.players[playerTurn].hand[2]
+            return chosencard, cardPass
         elif reaction == "4️⃣":
-            chosencard = self.players[playerTurn].hand.pop(3)
-            return chosencard
+            chosencard = self.players[playerTurn].hand[3]
+            return chosencard, cardPass
+        elif reaction == "✋":
+            await self.showHand(playerTurn, True)
 
     def embedGen(self, player):
         embed = discord.Embed(title="Your Hand", description="The cards in your initial hand", color=0x6a37c8)
@@ -134,15 +140,18 @@ class game:
 
 
 class card:
-    def __init__(self, Name, Number, Speed, Patterns, Origin=None):
+    def __init__(self, Name, Number, Speed, chargeNeeded, Patterns, Origin=None):
         if Origin is None:
             Origin = [4, 8]
         self.previousCoords = []
         self.name = Name  # Name of card
         self.number = Number  # Number of card
         self.speed = Speed  # Determines the speed of the card when played
+        if Patterns is None:
+            self.origin = [-16, -16]
         self.origin = Origin  # Starting origin of card
         self.pattern = Patterns  # Determines what the card will look like
+        self.chargeNeeded = chargeNeeded
 
     async def move(self, ctx, actualBoard, actualPlayer, testboard=None):
         print(self.origin)
@@ -193,7 +202,7 @@ class card:
         else:
             await self.move(ctx, actualBoard, actualPlayer)
 
-    def place(self, board, player, ghost=False, check=True):
+    def place(self, ctx, board, player, ghost=False, check=True):
         returnCoords = []
         if not ghost:
             if player.team == 1:
@@ -212,8 +221,10 @@ class card:
         if check:
             if not self.check(board):
                 print("Can't place here")
+                self.move(ctx, board, player)
             elif not self.nextCheck(board, player):
                 print("Can't place here")
+                self.move(ctx, board, player)
             else:
                 initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
                 returnCoords.append(((self.origin[0], self.origin[1]), copy.deepcopy(initalSpecial.state)))
@@ -302,6 +313,7 @@ class player:
         self.deck = Deck  # Deck of player
         self.hand = []  # Hand of player
         self.team = team  # Determines which team player is on, 0 is queueing, 1 is yellow, 2 is blue
+        self.charges = 0
 
 
 @bot.command()
@@ -309,7 +321,7 @@ async def testCard(ctx):
     newplayer = player([], "Hi there", 1)
     newboard = board(ctx.message.author.id)
     newCard = card("Splat Bomb", 56, 3, [(0, 1), (-1, 1)], [5, 5])
-    newCard.place(newboard, newplayer)
+    newCard.place(ctx, newboard, newplayer)
     newboard.update()
     boardList = newboard.printBoard()
     await ctx.send(embed=boardList)
@@ -326,7 +338,11 @@ async def moveTest(ctx):
     await ctx.send(embed=newboard.printBoard())
 
 
-defaultDeck = cardGen()
+defaultDeck = []
+cards = cardGen()
+for cardIn in cards:
+    newCard = card(cardIn[0], int(cardIn[1]), int(cardIn[2]), int(cardIn[3]), cardIn[4])
+    defaultDeck.append(newCard)
 
 
 @bot.command()
