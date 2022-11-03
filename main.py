@@ -5,7 +5,7 @@ import logging
 import copy
 from RotateBlock import rotate
 from Board import board, barrierCheck
-
+from CardGenerator import cardGen
 
 # 7 - 10, Setting up the Discord bot
 intents = discord.Intents.default()
@@ -69,29 +69,12 @@ class game:
         await self.playGame(ctx)
 
     async def playGame(self, ctx):
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
         for turn in range(0, 13):
             chosencards = []
             boardPlayerList = []
             for playerTurn in range(0, 2):
-                user = await bot.fetch_user(self.players[playerTurn].name)
-                message = await user.send(embed=self.embedGen(playerTurn))
-                for emoji in emojis:
-                    await message.add_reaction(emoji)
-                payload = await bot.wait_for('raw_reaction_add')
-                reaction = payload.emoji.name
-                if reaction == "1️⃣":
-                    chosencard = self.players[playerTurn].hand.pop(0)
-                    await chosencard.move(ctx, self.board, self.players[playerTurn])
-                elif reaction == "2️⃣":
-                    chosencard = self.players[playerTurn].hand.pop(1)
-                    await chosencard.move(ctx, self.board, self.players[playerTurn])
-                elif reaction == "3️⃣":
-                    chosencard = self.players[playerTurn].hand.pop(2)
-                    await chosencard.move(ctx, self.board, self.players[playerTurn])
-                elif reaction == "4️⃣":
-                    chosencard = self.players[playerTurn].hand.pop(3)
-                    await chosencard.move(ctx, self.board, self.players[playerTurn])
+                chosencard = await self.showHand(playerTurn)
+                await chosencard.move(ctx, self.board, self.players[playerTurn])
                 chosencards.append(chosencard)
                 boardPlayerList.append((self.board, self.players[playerTurn]))
             if chosencards[0].speed > chosencards[1].speed:
@@ -107,10 +90,35 @@ class game:
                 for coords in barrierCoords:
                     changingCoord = self.board.board.get(str(coords))
                     changingCoord.state = 11
+            self.players[0].hand.pop(self.players[0].index(chosencards[0]))
+            self.players[1].hand.pop(self.players[1].index(chosencards[1]))
+            self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[0].deck) - 1)))
+            self.players[1].hand.append(self.players[1].deck.pop(randint(0, len(self.players[1].deck) - 1)))
             user1 = await bot.fetch_user(self.players[0].name)
             user2 = await bot.fetch_user(self.players[1].name)
             await user1.send(embed=self.board.printBoard())
             await user2.send(embed=self.board.printBoard())
+
+    async def showHand(self, playerTurn):
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+        user = await bot.fetch_user(self.players[playerTurn].name)
+        message = await user.send(embed=self.embedGen(playerTurn))
+        for emoji in emojis:
+            await message.add_reaction(emoji)
+        payload = await bot.wait_for('raw_reaction_add')
+        reaction = payload.emoji.name
+        if reaction == "1️⃣":
+            chosencard = self.players[playerTurn].hand.pop(0)
+            return chosencard
+        elif reaction == "2️⃣":
+            chosencard = self.players[playerTurn].hand.pop(1)
+            return chosencard
+        elif reaction == "3️⃣":
+            chosencard = self.players[playerTurn].hand.pop(2)
+            return chosencard
+        elif reaction == "4️⃣":
+            chosencard = self.players[playerTurn].hand.pop(3)
+            return chosencard
 
     def embedGen(self, player):
         embed = discord.Embed(title="Your Hand", description="The cards in your initial hand", color=0x6a37c8)
@@ -149,7 +157,7 @@ class card:
             changecoord.state = coords[1]
         self.previousCoords = self.place(testboard, testplayer, True, False)
         actualBoard.update()
-        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "✅", "⤵️"]
+        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "🔁", "✅", "❌"]
         user = await bot.fetch_user(actualPlayer.name)
         await user.send(embed=testboard.printBoard())
         message = await user.send("Move card?")
@@ -173,9 +181,13 @@ class card:
                 await self.move(ctx, actualBoard, actualPlayer, testboard)
             elif reaction == "✅":
                 return actualBoard, actualPlayer
-            elif reaction == "⤵️":
+            elif reaction == "🔁":
                 self.pattern = rotate(self)
                 await self.move(ctx, actualBoard, actualPlayer)
+            elif reaction == "❌":
+                cardsGame = currentGames.get(actualPlayer)
+                newCard = await cardsGame.showHand(actualPlayer.team - 1)
+                await newCard.move(ctx, actualBoard, actualPlayer)
             else:
                 ctx.send("Something went wrong")
         else:
@@ -314,10 +326,7 @@ async def moveTest(ctx):
     await ctx.send(embed=newboard.printBoard())
 
 
-defaultDeck = [card("Splat Bomb", 56, 3, [(0, 1), (-1, 1), (-1, 0)]),
-               card("Splatana", 55, 5, [(0, 1), (0, 2), (0, 3), (0, 4)],),
-               card("Sprinkler", 59, 3, [(-1, -1), (1, -1)]), card("Curling Bomb", 62, 4, [(0, 1), (-1, 1), (1, 1)]),
-               card("Forgot the name", 55, 5, [(0, 1), (0, 2), (0, 3), (0, 4)])]
+defaultDeck = cardGen()
 
 
 @bot.command()
