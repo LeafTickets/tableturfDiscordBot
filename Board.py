@@ -1,6 +1,9 @@
 import discord
 from Slot import slot
 
+boardx = 12
+boardy = 12
+
 
 class board:
     def __init__(self, nam, board={}):
@@ -14,14 +17,14 @@ class board:
     def makeBoard(self):
         x = 0
         y = 0
-        for rows in range(0, 26):
-            for slots in range(0, 10):
+        for rows in range(0, boardy):
+            for slots in range(0, boardx):
                 self.board[str((x, y))] = slot(y, x)
                 x += 1
             y += 1
             x = 0
-        self.board.get("(4, 14)").state = 2
-        self.board.get("(4, 2)").state = 5
+        self.board.get("(2, 9)").state = 2  # (2, 9), (9, 2) for square, (4, 14), (4, 2) for long
+        self.board.get("(9, 2)").state = 5
         self.update()
 
     def printBoard(self):
@@ -29,8 +32,8 @@ class board:
         board = []
         x = 0
         y = 0
-        for rows in range(0, 17):
-            for slots in range(0, 9):
+        for rows in range(0, boardy):
+            for slots in range(0, boardx):
                 board.append(self.board.get(str((x, y))).contents)
                 x += 1
             y += 1
@@ -42,12 +45,65 @@ class board:
     def update(self):
         x = 0
         y = 0
-        for rows in range(0, 17):
-            for slots in range(0, 9):
+        for rows in range(0, boardy):
+            for slots in range(0, boardx):
                 self.board.get(str((x, y))).changeContents()
                 x += 1
             y += 1
             x = 0
+
+    def checkForSpecials(self, player):
+        x = 0
+        y = 0
+        if player.team == 1:
+            special = 3
+        if player.team == 2:
+            special = 6
+        for rows in range(0, boardy):
+            for slots in range(0, boardx):
+                checkplace = [(0, -1), (0, 1), (1, -1), (1, 1), (1, 0), (-1, 0), (-1, 1), (-1, -1)]
+                addSpecial = True
+                for checks in checkplace:
+                    piece = self.board.get(str((x, y)))
+                    if piece.state == special:
+                        changedOrigin = x + checks[0], y + checks[1]
+                        changedPiece = self.board.get(str(changedOrigin))
+                        if changedPiece is None:
+                            continue
+                        elif changedPiece != 0:
+                            continue
+                        else:
+                            addSpecial = False
+                x += 1
+                if addSpecial:
+                    player.charge += 1
+                    slots.state = special
+            y += 1
+            x = 0
+
+    def determineWinner(self):
+        yellowCounter = 0
+        blueCounter = 0
+        x = 0
+        y = 0
+        for rows in range(0, boardy):
+            for slots in range(0, boardx):
+                slotContents = self.board.get(str((x, y))).contents()
+                if slotContents in [1, 2, 7, 8]:
+                    yellowCounter += 1
+                elif slotContents in [4, 5, 9, 10]:
+                    blueCounter += 1
+                else:
+                    continue
+                x += 1
+            y += 1
+            x = 0
+        if yellowCounter > blueCounter:
+            return 1, yellowCounter, blueCounter
+        elif yellowCounter < blueCounter:
+            return 2, yellowCounter, blueCounter
+        else:
+            return 3, yellowCounter, blueCounter
 
 
 def barrierCheck(card1, card2, board):

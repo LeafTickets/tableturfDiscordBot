@@ -13,13 +13,13 @@ class slot:  # a slot on the board
         elif self.state == 2:
             self.contents = "<:YS:1032293535279501433>"
         elif self.state == 3:
-            self.contents == ":YC:"
+            self.contents = "<:YSC:1037906335079084132>"
         elif self.state == 4:
             self.contents = "<:Bl:1032293531542356040>"
         elif self.state == 5:
             self.contents = "<:BS:1032293534088306728>"
         elif self.state == 6:
-            self.contents == ":BC:"
+            self.contents = "<:BSC:1037906333866938369>"
         elif self.state == 7:
             self.contents = "<:GYS:1035354617082556479>"
         elif self.state == 8:

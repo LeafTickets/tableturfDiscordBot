@@ -78,18 +78,49 @@ class game:
                     self.players[playerTurn].charge += 1
                 if chosencard is None:
                     chosencard = card("Temp", 0, 0, 0, None)
-                await chosencard.move(ctx, self.board, self.players[playerTurn])
+                if not cardpass:
+                    special = await chosencard.move(ctx, self.board, self.players[playerTurn])
                 chosencards.append(chosencard)
-                boardPlayerList.append((self.board, self.players[playerTurn]))
-            if chosencards[0].speed > chosencards[1].speed:
-                chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
-                chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
+                boardPlayerList.append((self.board, self.players[playerTurn], cardpass, special))
+            if boardPlayerList[0][2] and boardPlayerList[1][2]:
+                pass
+            elif boardPlayerList[0][2]:
+                if boardPlayerList[1][3]:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1], True)
+                else:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
+            elif boardPlayerList[1][2]:
+                if boardPlayerList[0][3]:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1], True)
+                else:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
+            elif chosencards[0].speed > chosencards[1].speed:
+                if boardPlayerList[0][3]:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1], True)
+                else:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
+                if boardPlayerList[1][3]:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1], True)
+                else:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
             elif chosencards[0].speed < chosencards[1].speed:
-                chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
-                chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
+                if boardPlayerList[1][3]:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1], True)
+                else:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1])
+                if boardPlayerList[0][3]:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1], True)
+                else:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1])
             else:
-                chosencards[0].place(boardPlayerList[0][0], boardPlayerList[0][1], False, False)
-                chosencards[1].place(boardPlayerList[1][0], boardPlayerList[1][1], False, False)
+                if boardPlayerList[0][3]:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1], True, False, False)
+                else:
+                    chosencards[0].place(ctx, boardPlayerList[0][0], boardPlayerList[0][1], False, False, False)
+                if boardPlayerList[1][3]:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1], True, False, False)
+                else:
+                    chosencards[1].place(ctx, boardPlayerList[1][0], boardPlayerList[1][1], False, False, False)
                 barrierCoords = barrierCheck(chosencards[0], chosencards[1], self.board)
                 for coords in barrierCoords:
                     changingCoord = self.board.board.get(str(coords))
@@ -98,33 +129,38 @@ class game:
             self.players[1].hand.pop(self.players[1].hand.index(chosencards[1]))
             self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[0].deck) - 1)))
             self.players[1].hand.append(self.players[1].deck.pop(randint(0, len(self.players[1].deck) - 1)))
+            self.board.checkForSpecials(self.players[0])
+            self.board.checkForSpecials(self.players[1])
             user1 = await bot.fetch_user(self.players[0].name)
             user2 = await bot.fetch_user(self.players[1].name)
             await user1.send(embed=self.board.printBoard())
             await user2.send(embed=self.board.printBoard())
+        await self.endGame(ctx)
 
     async def showHand(self, playerTurn, cardPass=False):
         emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "✋"]
+        returnClause = cardPass
         user = await bot.fetch_user(self.players[playerTurn].name)
         message = await user.send(embed=self.embedGen(playerTurn))
         for emoji in emojis:
             await message.add_reaction(emoji)
         payload = await bot.wait_for('raw_reaction_add')
         reaction = payload.emoji.name
-        if reaction == "1️⃣":
+        if reaction == "✋":
+            chosencard, returnClause = await self.showHand(playerTurn, True)
+            return chosencard, returnClause
+        elif reaction == "1️⃣":
             chosencard = self.players[playerTurn].hand[0]
-            return chosencard, cardPass
+            return chosencard, returnClause
         elif reaction == "2️⃣":
             chosencard = self.players[playerTurn].hand[1]
-            return chosencard, cardPass
+            return chosencard, returnClause
         elif reaction == "3️⃣":
             chosencard = self.players[playerTurn].hand[2]
-            return chosencard, cardPass
+            return chosencard, returnClause
         elif reaction == "4️⃣":
             chosencard = self.players[playerTurn].hand[3]
-            return chosencard, cardPass
-        elif reaction == "✋":
-            await self.showHand(playerTurn, True)
+            return chosencard, returnClause
 
     def embedGen(self, player):
         embed = discord.Embed(title="Your Hand", description="The cards in your initial hand", color=0x6a37c8)
@@ -138,11 +174,23 @@ class game:
             self.players[player].hand[3].speed))
         return embed
 
+    async def endGame(self, ctx):
+        winner, yellowCount, blueCount = self.board.determineWinner()
+        await ctx.send(
+            "<@" + str(self.players[0].name) + ">" + "<@" + str(self.players[0].name) + ">" + "'s game has finished")
+        await ctx.send(embed=self.board.printBoard())
+        if winner == 1:
+            ctx.send("Yellow team won with a score of " + str(yellowCount) + ". Blue team got " + str(blueCount))
+        elif winner == 1:
+            ctx.send("Blue team won with a score of " + str(blueCount) + ". Yellow team got " + str(yellowCount))
+        else:
+            ctx.send("It was a tie with a score of" + str(yellowCount))
+
 
 class card:
     def __init__(self, Name, Number, Speed, chargeNeeded, Patterns, Origin=None):
         if Origin is None:
-            Origin = [4, 8]
+            Origin = [6, 6]
         self.previousCoords = []
         self.name = Name  # Name of card
         self.number = Number  # Number of card
@@ -164,9 +212,9 @@ class card:
         for coords in self.previousCoords:
             changecoord = testboard.board.get(str(coords[0]))
             changecoord.state = coords[1]
-        self.previousCoords = self.place(testboard, testplayer, True, False)
+        self.previousCoords = self.place(ctx, testboard, testplayer, False, True, False)
         actualBoard.update()
-        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "🔁", "✅", "❌"]
+        emojis = ["⬆️", "⬇️", "➡️", "⬅️", "🔁", "⭐", "✅", "❌"]
         user = await bot.fetch_user(actualPlayer.name)
         await user.send(embed=testboard.printBoard())
         message = await user.send("Move card?")
@@ -189,7 +237,7 @@ class card:
                 self.origin[0] += -1
                 await self.move(ctx, actualBoard, actualPlayer, testboard)
             elif reaction == "✅":
-                return actualBoard, actualPlayer
+                return False
             elif reaction == "🔁":
                 self.pattern = rotate(self)
                 await self.move(ctx, actualBoard, actualPlayer)
@@ -197,12 +245,18 @@ class card:
                 cardsGame = currentGames.get(actualPlayer)
                 newCard = await cardsGame.showHand(actualPlayer.team - 1)
                 await newCard.move(ctx, actualBoard, actualPlayer)
+            elif reaction == "⭐":
+                if self.chargeNeeded >= actualPlayer.charge:
+                    await self.move(ctx, actualBoard, actualPlayer, testboard)
+                else:
+                    actualPlayer.charge -= self.chargeNeeded
+                    return True
             else:
                 ctx.send("Something went wrong")
         else:
             await self.move(ctx, actualBoard, actualPlayer)
 
-    def place(self, ctx, board, player, ghost=False, check=True):
+    def place(self, ctx, board, player, special=False, ghost=False, check=True):
         returnCoords = []
         if not ghost:
             if player.team == 1:
@@ -219,24 +273,40 @@ class card:
                 special = 9
                 normal = 10
         if check:
-            if not self.check(board):
-                print("Can't place here")
-                self.move(ctx, board, player)
-            elif not self.nextCheck(board, player):
-                print("Can't place here")
-                self.move(ctx, board, player)
-            else:
-                initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
-                returnCoords.append(((self.origin[0], self.origin[1]), copy.deepcopy(initalSpecial.state)))
-                initalSpecial.state = special
-                for pieces in self.pattern:
-                    changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
-                    changedPiece = board.board.get(str(changedOrigin))
-                    if changedPiece is not None:
-                        returnCoords.append(((self.origin[0] + pieces[0], self.origin[1] + pieces[1]),
-                                             copy.deepcopy(changedPiece.state)))
+            if not special:
+                if not self.check(board):
+                    print("Can't place here")
+                    self.move(ctx, board, player)
+                elif not self.nextCheck(board, player):
+                    print("Can't place here")
+                    self.move(ctx, board, player)
+                else:
+                    initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
+                    returnCoords.append(((self.origin[0], self.origin[1]), copy.deepcopy(initalSpecial.state)))
+                    initalSpecial.state = special
+                    for pieces in self.pattern:
+                        changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
+                        changedPiece = board.board.get(str(changedOrigin))
+                        if changedPiece is not None:
+                            returnCoords.append(((self.origin[0] + pieces[0], self.origin[1] + pieces[1]),
+                                                 copy.deepcopy(changedPiece.state)))
                         changedPiece.state = normal
-                    board.update()
+                        board.update()
+            else:
+                if not self.specialCheck(board, player):
+                    self.move(ctx, board, player)
+                else:
+                    initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
+                    returnCoords.append(((self.origin[0], self.origin[1]), copy.deepcopy(initalSpecial.state)))
+                    initalSpecial.state = special
+                    for pieces in self.pattern:
+                        changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
+                        changedPiece = board.board.get(str(changedOrigin))
+                        if changedPiece is not None:
+                            returnCoords.append(((self.origin[0] + pieces[0], self.origin[1] + pieces[1]),
+                                                 copy.deepcopy(changedPiece.state)))
+                        changedPiece.state = normal
+                        board.update()
         else:
             initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
             returnCoords.append(((self.origin[0], self.origin[1]), copy.deepcopy(initalSpecial.state)))
@@ -306,6 +376,72 @@ class card:
                     return True
         return False
 
+    def specialCheck(self, board, player):
+        if player.team == 1:
+            special = 2
+            ospecial = 5
+        if player.team == 2:
+            special = 5
+            ospecial = 2
+        teamnums = special
+        checkplace = [(0, -1), (0, 1), (1, -1), (1, 1), (1, 0), (-1, 0), (-1, 1), (-1, -1)]
+        for checks in checkplace:
+            changedOrigin = self.origin[0] + checks[0], self.origin[1] + checks[1]
+            changedPiece = board.board.get(str(changedOrigin))
+            if changedPiece is None:
+                continue
+            if changedPiece.state == teamnums:
+                returnStatement = True
+            else:
+                returnStatement = False
+            if not returnStatement:
+                continue
+            elif returnStatement:
+                initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
+                if initalSpecial is None:
+                    return False
+                elif initalSpecial.state != 0:
+                    return False
+                else:
+                    for pieces in self.pattern:
+                        changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
+                        changedPiece = board.board.get(str(changedOrigin))
+                        if changedPiece is None:
+                            return False
+                        elif changedPiece.state == ospecial:
+                            return False
+                        else:
+                            return True
+        for pieces in self.pattern:
+            for checks in checkplace:
+                changedOrigin = self.origin[0] + pieces[0] + checks[0], self.origin[1] + pieces[1] + checks[1]
+                changedPiece = board.board.get(str(changedOrigin))
+                if changedPiece is None:
+                    continue
+                if changedPiece.state == teamnums:
+                    returnStatement = True
+                else:
+                    returnStatement = False
+                if not returnStatement:
+                    continue
+                elif returnStatement:
+                    initalSpecial = board.board.get(str((self.origin[0], self.origin[1])))
+                    if initalSpecial is None:
+                        return False
+                    elif initalSpecial.state != 0:
+                        return False
+                    else:
+                        for pieces in self.pattern:
+                            changedOrigin = self.origin[0] + pieces[0], self.origin[1] + pieces[1]
+                            changedPiece = board.board.get(str(changedOrigin))
+                            if changedPiece is None:
+                                return False
+                            elif changedPiece.state == ospecial:
+                                return False
+                            else:
+                                return True
+        return False
+
 
 class player:
     def __init__(self, Deck, Name, team=0):
@@ -313,7 +449,7 @@ class player:
         self.deck = Deck  # Deck of player
         self.hand = []  # Hand of player
         self.team = team  # Determines which team player is on, 0 is queueing, 1 is yellow, 2 is blue
-        self.charges = 0
+        self.charge = 0
 
 
 @bot.command()
