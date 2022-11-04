@@ -124,7 +124,10 @@ class game:
                 barrierCoords = barrierCheck(chosencards[0], chosencards[1], self.board)
                 for coords in barrierCoords:
                     changingCoord = self.board.board.get(str(coords))
-                    changingCoord.state = 11
+                    if changingCoord is None:
+                        pass
+                    else:
+                        changingCoord.state = 11
             self.players[0].hand.pop(self.players[0].hand.index(chosencards[0]))
             self.players[1].hand.pop(self.players[1].hand.index(chosencards[1]))
             self.players[0].hand.append(self.players[0].deck.pop(randint(0, len(self.players[0].deck) - 1)))
@@ -510,4 +513,4 @@ async def makeBoard(ctx):
 
 
 if __name__ == "__main__":
-    bot.run("Token Goes Here")
+    bot.run("MTAzMjEyOTIxMTE1NjE1MjM0MA.GKGsvl.HziJlPlqnVN_tuX3ZtboltAe11fgJataoH_0vE")

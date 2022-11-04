@@ -56,28 +56,28 @@ class board:
         x = 0
         y = 0
         if player.team == 1:
-            special = 3
+            special = 2
+            specialc = 3
         if player.team == 2:
-            special = 6
+            special = 5
+            specialc = 6
         for rows in range(0, boardy):
             for slots in range(0, boardx):
                 checkplace = [(0, -1), (0, 1), (1, -1), (1, 1), (1, 0), (-1, 0), (-1, 1), (-1, -1)]
                 addSpecial = True
-                for checks in checkplace:
-                    piece = self.board.get(str((x, y)))
-                    if piece.state == special:
-                        changedOrigin = x + checks[0], y + checks[1]
+                piece = self.board.get(str((x, y)))
+                if piece.state == special:
+                    for checks in checkplace:
+                        changedOrigin = (x + checks[0], y + checks[1])
                         changedPiece = self.board.get(str(changedOrigin))
-                        if changedPiece is None:
-                            continue
-                        elif changedPiece != 0:
-                            continue
-                        else:
+                        if changedPiece.state == 0:
                             addSpecial = False
+                else:
+                    addSpecial = False
                 x += 1
                 if addSpecial:
                     player.charge += 1
-                    slots.state = special
+                    piece.state = specialc
             y += 1
             x = 0
 
